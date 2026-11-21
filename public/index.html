@@ -7,252 +7,7 @@
     <title>SafeLoop</title>
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-    <script>
-/* SafeLoop language support: English / हिन्दी / Hinglish.
-   Paste this whole block (including the <script> tags) just before </body> in public/index.html. */
-(() => {
-  const KEY = "safeloop_lang", LANGS = ["en", "hi", "hn"];
-  // [English, Hindi, Hinglish] – the English text must match the app's text exactly.
-  const T = [
-    ["Welcome back", "वापसी पर स्वागत है", "Wapas aane par swagat hai"],
-    ["Create your account", "अपना खाता बनाएँ", "Apna account banaiye"],
-    ["Share how you are doing with people you trust. You decide what they see.", "अपने भरोसेमंद लोगों को बताते रहिए कि आप कैसे हैं। वे क्या देख सकते हैं, यह आप तय करते हैं।", "Apne bharosemand logon ko batate rahiye ki aap kaise hain. Woh kya dekh sakte hain, yeh aap tay karte hain."],
-    ["Full name", "पूरा नाम", "Poora naam"],
-    ["Email", "ईमेल", "Email"],
-    ["Password", "पासवर्ड", "Password"],
-    ["8+ characters", "8+ अक्षर", "8+ characters"],
-    ["Log in", "लॉग इन करें", "Log in kijiye"],
-    ["Sign up", "साइन अप करें", "Sign up kijiye"],
-    ["New here? Create an account", "नए हैं? खाता बनाएँ", "Naye hain? Account banaiye"],
-    ["Have an account? Log in", "खाता है? लॉग इन करें", "Account hai? Log in kijiye"],
-    ["Home", "होम", "Home"],
-    ["Map", "नक्शा", "Map"],
-    ["People", "संपर्क", "Contacts"],
-    ["Alerts", "अलर्ट", "Alerts"],
-    ["Your SOS is active", "आपका SOS चालू है", "Aapka SOS active hai"],
-    ["Your trusted contacts have been notified.", "आपके भरोसेमंद संपर्कों को सूचित कर दिया गया है।", "Aapke trusted contacts ko bata diya gaya hai."],
-    ["I’m safe, cancel alert", "मैं सुरक्षित हूँ, अलर्ट रद्द करें", "Main safe hoon, alert cancel kijiye"],
-    ["SafeLoop does not replace emergency services.", "SafeLoop आपातकालीन सेवाओं का विकल्प नहीं है।", "SafeLoop emergency services ka vikalp nahin hai."],
-    ["active", "सक्रिय", "active"],
-    ["acknowledged", "स्वीकार किया गया", "acknowledge ho gaya"],
-    ["Acknowledge", "स्वीकार करें", "Acknowledge kijiye"],
-    ["Resolve", "सुलझाएँ", "Resolve kijiye"],
-    ["just now", "अभी-अभी", "Abhi abhi"],
-    ["Sharing live location", "लाइव लोकेशन साझा हो रही है", "Live location share ho rahi hai"],
-    ["Location sharing is off", "लोकेशन साझा करना बंद है", "Location sharing band hai"],
-    ["Only contacts you allowed can see it", "केवल आपकी अनुमति वाले संपर्क ही इसे देख सकते हैं", "Sirf aapke allow kiye hue contacts hi ise dekh sakte hain"],
-    ["Nobody can see where you are", "कोई नहीं देख सकता कि आप कहाँ हैं", "Koi nahin dekh sakta ki aap kahan hain"],
-    ["Share live location", "लाइव लोकेशन साझा करें", "Live location share kijiye"],
-    ["Have you had breakfast?", "क्या आपने नाश्ता किया?", "Kya aapne nashta kiya?"],
-    ["Have you had lunch?", "क्या आपने दोपहर का खाना खाया?", "Kya aapne lunch kiya?"],
-    ["Reached home?", "क्या घर पहुँच गए?", "Ghar pahunch gaye?"],
-    ["Time for your daily check-in", "आपके रोज़ाना चेक-इन का समय", "Aapke daily check-in ka time"],
-    ["Suggestion only. Tap to confirm.", "सिर्फ़ सुझाव है। पुष्टि के लिए टैप करें।", "Sirf suggestion hai. Confirm karne ke liye tap kijiye."],
-    ["Yes", "हाँ", "Haan"],
-    ["Quick status", "त्वरित स्थिति", "Quick status"],
-    ["Woke up", "उठ गए", "Uth gaye"],
-    ["Had breakfast", "नाश्ता किया", "Nashta kiya"],
-    ["Had lunch", "दोपहर का खाना खाया", "Lunch kiya"],
-    ["Had dinner", "रात का खाना खाया", "Dinner kiya"],
-    ["Reached home", "घर पहुँच गए", "Ghar pahunch gaye"],
-    ["Reached office", "ऑफ़िस पहुँच गए", "Office pahunch gaye"],
-    ["Boarded train", "ट्रेन में बैठ गए", "Train mein baith gaye"],
-    ["On the way", "रास्ते में", "Raaste mein"],
-    ["I am fine", "मैं ठीक हूँ", "Main theek hoon"],
-    ["Feeling unwell", "तबीयत ठीक नहीं है", "Tabiyat theek nahin hai"],
-    ["Call me when free", "फ़्री होकर कॉल करें", "Free hokar call kijiye"],
-    ["Going to sleep", "सोने जा रहे हैं", "Sone ja rahe hain"],
-    ["Or write your own update", "या अपना संदेश लिखें", "Ya apna update likhiye"],
-    ["Custom status", "अपनी स्थिति", "Apna status"],
-    ["Send", "भेजें", "Bhejiye"],
-    ["Updates", "अपडेट", "Updates"],
-    ["You", "आप", "Aap"],
-    ["No updates yet. Tap a status above to send your first one.", "अभी कोई अपडेट नहीं। पहला अपडेट भेजने के लिए ऊपर कोई स्थिति टैप करें।", "Abhi koi update nahin. Pehla update bhejne ke liye upar koi status tap kijiye."],
-    ["You appear here only while sharing is on. You see contacts only if they gave you “Status + live location”.", "आप यहाँ तभी दिखते हैं जब शेयरिंग चालू हो। आप संपर्कों को तभी देख सकते हैं जब उन्होंने आपको “स्थिति + लाइव लोकेशन” की अनुमति दी हो।", "Aap yahan tabhi dikhte hain jab sharing on ho. Aap contacts ko tabhi dekh sakte hain jab unhone aapko “Status + live location” ki permission di ho."],
-    ["Nobody is sharing a location right now.", "अभी कोई लोकेशन साझा नहीं कर रहा।", "Abhi koi location share nahin kar raha."],
-    ["Trusted contacts", "भरोसेमंद संपर्क", "Trusted contacts"],
-    ["wants to share updates with you.", "आपके साथ अपडेट साझा करना चाहते हैं।", "aapke saath updates share karna chahte hain."],
-    ["Accept", "स्वीकार करें", "Accept kijiye"],
-    ["Decline", "अस्वीकार करें", "Decline kijiye"],
-    ["People you share with", "जिनके साथ आप साझा करते हैं", "Jinke saath aap share karte hain"],
-    ["Invitation pending", "निमंत्रण लंबित", "Invitation pending"],
-    ["Paused", "रोका गया", "Paused"],
-    ["Active", "चालू", "Active"],
-    ["Status only", "केवल स्थिति", "Sirf status"],
-    ["Status + journey", "स्थिति + यात्रा", "Status + journey"],
-    ["Status + live location", "स्थिति + लाइव लोकेशन", "Status + live location"],
-    ["Permission", "अनुमति", "Permission"],
-    ["Resume", "फिर शुरू करें", "Resume kijiye"],
-    ["Pause", "रोकें", "Pause kijiye"],
-    ["Revoke", "हटाएँ", "Hatayein"],
-    ["Nobody yet. Invite someone you trust.", "अभी कोई नहीं। किसी भरोसेमंद व्यक्ति को आमंत्रित करें।", "Abhi koi nahin. Kisi bharosemand ko invite kijiye."],
-    ["Invite by email", "ईमेल से आमंत्रित करें", "Email se invite kijiye"],
-    ["Invite", "आमंत्रित करें", "Invite kijiye"],
-    ["People sharing with you", "जो आपके साथ साझा करते हैं", "Jo aapke saath share karte hain"],
-    ["Nobody has shared with you yet.", "अभी तक किसी ने आपके साथ साझा नहीं किया।", "Abhi tak kisi ne aapke saath share nahin kiya."],
-    ["Notifications", "सूचनाएँ", "Notifications"],
-    ["Mark all read", "सब पढ़ा हुआ करें", "Sab padha hua mark kijiye"],
-    ["New", "नया", "Naya"],
-    ["Nothing yet. Updates from your contacts will appear here.", "अभी कुछ नहीं। आपके संपर्कों के अपडेट यहाँ दिखेंगे।", "Abhi kuch nahin. Aapke contacts ke updates yahan dikhenge."],
-    ["Browsers can’t ring in the background. Keep SafeLoop open for live alerts.", "ब्राउज़र बैकग्राउंड में नहीं बज सकते। लाइव अलर्ट के लिए SafeLoop खुला रखें।", "Browser background mein ring nahin kar sakte. Live alerts ke liye SafeLoop khula rakhiye."],
-    ["Emergency SOS", "आपातकालीन SOS", "Emergency SOS"],
-    ["Hold for 2 seconds. Your trusted contacts get your latest shared location.", "2 सेकंड दबाए रखें। आपके भरोसेमंद संपर्कों को आपकी ताज़ा साझा लोकेशन मिलेगी।", "2 second dabaye rakhiye. Aapke trusted contacts ko aapki latest shared location mil jayegi."],
-    ["Hold 2 seconds to send SOS", "SOS भेजने के लिए 2 सेकंड दबाए रखें", "SOS bhejne ke liye 2 second dabaye rakhiye"],
-    ["SafeLoop does not replace emergency services. If you are in danger, call your local emergency number first.", "SafeLoop आपातकालीन सेवाओं का विकल्प नहीं है। खतरे में हों तो पहले अपने स्थानीय आपातकालीन नंबर पर कॉल करें।", "SafeLoop emergency services ka vikalp nahin hai. Khatre mein hon to pehle apne local emergency number par call kijiye."],
-    ["Network problem. Check your connection and try again.", "नेटवर्क में समस्या है। अपना कनेक्शन जाँचकर दोबारा कोशिश करें।", "Network mein problem hai. Connection check karke dobara try kijiye."],
-    ["This browser has no location support", "इस ब्राउज़र में लोकेशन सपोर्ट नहीं है", "Is browser mein location support nahin hai"],
-    ["Sharing started", "शेयरिंग शुरू हो गई", "Sharing shuru ho gayi"],
-    ["Location permission denied. Allow it in your browser settings.", "लोकेशन की अनुमति नहीं मिली। ब्राउज़र सेटिंग्स में इसे अनुमति दें।", "Location permission nahin mili. Browser settings mein ise allow kijiye."],
-    ["Could not get your location", "आपकी लोकेशन नहीं मिल सकी", "Aapki location nahin mil saki"],
-    ["Location sharing stopped", "लोकेशन साझा करना बंद हो गया", "Location sharing band ho gayi"],
-    ["Location sharing started", "लोकेशन साझा करना शुरू हुआ", "Location sharing shuru hui"],
-    ["SOS sent", "SOS भेज दिया गया", "SOS bhej diya gaya"],
-    ["Sent", "भेजा गया", "Bheja gaya"],
-    ["Accepted", "स्वीकार किया गया", "Accept ho gaya"],
-    ["Removed", "हटा दिया गया", "Hata diya gaya"],
-    ["Alert cancelled and contacts told", "अलर्ट रद्द किया गया और संपर्कों को बता दिया गया", "Alert cancel ho gaya aur contacts ko bata diya gaya"],
-    ["Acknowledged", "स्वीकार कर लिया", "Acknowledge kar liya"],
-    ["Resolved", "सुलझा दिया गया", "Resolve ho gaya"],
-    ["Permission updated", "अनुमति अपडेट हो गई", "Permission update ho gayi"],
-    ["Write an update first", "पहले कोई अपडेट लिखें", "Pehle koi update likhiye"],
-    ["Update sent", "अपडेट भेज दिया गया", "Update bhej diya gaya"],
-    ["Invitation sent. They must accept first", "आमंत्रण भेज दिया गया। उन्हें पहले स्वीकार करना होगा", "Invitation bhej diya gaya. Unhe pehle accept karna hoga"],
-    ["Emergency alert received", "आपातकालीन अलर्ट मिला", "Emergency alert mila"],
-    ["Wrong email or password", "ईमेल या पासवर्ड गलत है", "Email ya password galat hai"],
-    ["Email already registered", "यह ईमेल पहले से पंजीकृत है", "Yeh email pehle se registered hai"],
-    ["Valid email, name and 8+ character password required", "सही ईमेल, नाम और 8+ अक्षरों का पासवर्ड ज़रूरी है", "Sahi email, naam aur 8+ characters ka password zaroori hai"],
-    ["Too many attempts", "बहुत ज़्यादा कोशिशें हो गईं", "Bahut zyada koshishein ho gayin"],
-    ["Sign in required", "साइन इन करना ज़रूरी है", "Sign in karna zaroori hai"],
-    ["Enter a different valid email", "कोई दूसरा सही ईमेल डालें", "Koi doosra sahi email daaliye"],
-    ["Already invited", "पहले ही आमंत्रित किया जा चुका है", "Pehle hi invite kiya ja chuka hai"],
-    ["Not authorised", "अनुमति नहीं है", "Permission nahin hai"],
-    ["Only the person sharing can change permissions", "केवल साझा करने वाला व्यक्ति अनुमतियाँ बदल सकता है", "Sirf share karne wala vyakti permissions badal sakta hai"],
-    ["Server error", "सर्वर में गड़बड़ी", "Server mein gadbad"],
-    ["New trusted-contact request", "भरोसेमंद संपर्क का नया अनुरोध", "Trusted contact ka naya request"],
-    ["Contact accepted", "संपर्क ने स्वीकार किया", "Contact ne accept kiya"],
-    ["No location available", "कोई लोकेशन उपलब्ध नहीं", "Koi location available nahin"],
-    ["Emergency acknowledge", "आपातकालीन अलर्ट स्वीकार किया गया", "Emergency alert acknowledge ho gaya"],
-    ["Emergency resolve", "आपातकालीन अलर्ट सुलझा दिया गया", "Emergency alert resolve ho gaya"],
-    ["Emergency cancel", "आपातकालीन अलर्ट रद्द किया गया", "Emergency alert cancel ho gaya"],
-  ];
-  // Messages that contain a name or number: {1} is the captured part.
-  const PAT = [
-    [/^(.+) wants to share updates with you$/, "{1} आपके साथ अपडेट साझा करना चाहते हैं", "{1} aapke saath updates share karna chahte hain"],
-    [/^(.+) accepted your invitation$/, "{1} ने आपका आमंत्रण स्वीकार किया", "{1} ne aapka invitation accept kiya"],
-    [/^(.+) is sharing live location$/, "{1} लाइव लोकेशन साझा कर रहे हैं", "{1} live location share kar rahe hain"],
-    [/^(.+) stopped sharing$/, "{1} ने साझा करना बंद किया", "{1} ne sharing band ki"],
-    [/^Last location (.+)$/, "आख़िरी लोकेशन {1}", "Aakhri location {1}"],
-    [/^emergency from (.+)$/i, "आपातकालीन अलर्ट: {1}", "Emergency alert: {1}"],
-    [/^(.+): acknowledge$/, "{1} ने स्वीकार किया", "{1} ne acknowledge kiya"],
-    [/^(.+): resolve$/, "{1} ने सुलझाया", "{1} ne resolve kiya"],
-    [/^(.+): cancel$/, "{1} ने रद्द किया", "{1} ne cancel kiya"],
-    [/^(\d+) min ago$/, "{1} मिनट पहले", "{1} minute pehle"],
-    [/^(\d+) h ago$/, "{1} घंटे पहले", "{1} ghante pehle"],
-    [/^(\d+) d ago$/, "{1} दिन पहले", "{1} din pehle"],
-    [/^Log out (.+)$/, "लॉग आउट: {1}", "Log out: {1}"],
-  ];
-  const MAPS = { hi: new Map(), hn: new Map() };
-  T.forEach(([en, hi, hn]) => { MAPS.hi.set(en, hi); MAPS.hn.set(en, hn); });
-  let lang = "en";
-
-  const tr = (s) => {
-    if (lang === "en") return s;
-    const d = MAPS[lang], k = lang === "hi" ? 1 : 2;
-    if (d.has(s)) return d.get(s);
-    if (s.includes(" · ")) return s.split(" · ").map(tr).join(" · ");
-    let m = s.match(/^(active|acknowledged)\. (.+)$/);
-    if (m) return tr(m[1]) + (lang === "hi" ? "। " : ". ") + tr(m[2]);
-    for (const p of PAT) { m = s.match(p[0]); if (m) return p[k].replace(/\{(\d)\}/g, (_, i) => m[+i]); }
-    m = s.match(/^(.*?): (.+)$/); // "Name: Had lunch", "Sent: Had lunch"
-    if (m && d.has(m[2])) return (m[1] ? d.get(m[1]) || m[1] : "") + ": " + d.get(m[2]);
-    return s;
-  };
-
-  const seenText = new WeakMap(), seenAttr = new WeakMap();
-  const skip = (n) => (n.nodeType === 1 ? n : n.parentElement)?.closest('[translate="no"],script,style,textarea');
-  function text(n) {
-    const s = seenText.get(n), orig = s && n.data === s.shown ? s.orig : n.data;
-    const m = orig.match(/^(\s*)([\s\S]*?)(\s*)$/);
-    if (!m[2]) return;
-    const out = lang === "en" ? orig : m[1] + tr(m[2]) + m[3];
-    if (out !== n.data) n.data = out;
-    seenText.set(n, { orig, shown: out });
-  }
-  function attrs(el) {
-    for (const a of ["placeholder", "aria-label"]) {
-      if (!el.hasAttribute(a)) continue;
-      const rec = seenAttr.get(el) || {}, cur = el.getAttribute(a), r = rec[a];
-      const orig = r && cur === r.shown ? r.orig : cur, out = lang === "en" ? orig : tr(orig);
-      if (out !== cur) el.setAttribute(a, out);
-      rec[a] = { orig, shown: out };
-      seenAttr.set(el, rec);
-    }
-  }
-  function process(root) {
-    if (root.nodeType === 3) { if (!skip(root)) text(root); return; }
-    if (root.nodeType !== 1 || skip(root) || root.tagName === "IMG" || root.classList.contains("leaflet-tile")) return;
-    const w = document.createTreeWalker(root, 4);
-    for (let n = w.nextNode(); n; n = w.nextNode()) if (!skip(n)) text(n);
-    [root, ...root.querySelectorAll("[placeholder],[aria-label]")].forEach((e) => { if (!skip(e)) attrs(e); });
-  }
-
-  // language picker (kept in the header, or above the login form)
-  const css = document.createElement("style");
-  css.textContent =
-    '.sl-lang{font:500 12px/1 "Plus Jakarta Sans","Noto Sans Devanagari",system-ui,sans-serif;color:#3a0f34;background:transparent;border:1px solid #c0cad2;border-radius:999px;padding:7px 10px;cursor:pointer}' +
-    ".sl-lang:hover{border-color:#3a0f34}.sl-lang:focus-visible{outline:2px solid #3a0f34;outline-offset:2px}" +
-    'html body,html .font-sans{font-family:"Plus Jakarta Sans","Noto Sans Devanagari",system-ui,sans-serif}' +
-    'html .font-display{font-family:Fraunces,"Noto Serif Devanagari",Georgia,serif}' +
-    "html[lang=hi] body{line-height:1.7}html[lang=hi] h2,html[lang=hi] h3,html[lang=hi] .font-display{line-height:1.45}";
-  document.head.appendChild(css);
-  const sw = document.createElement("select");
-  sw.className = "sl-lang";
-  sw.setAttribute("translate", "no");
-  sw.innerHTML = '<option value="en">English</option><option value="hi">हिन्दी</option><option value="hn">Hinglish</option>';
-  sw.onchange = () => set(sw.value);
-  function place() {
-    const h = document.querySelector("#app header");
-    if (h) {
-      if (sw.parentNode !== h) { sw.style.cssText = "margin:0 8px 0 auto"; h.insertBefore(sw, h.lastElementChild); }
-      return;
-    }
-    const box = document.querySelector("#app > div");
-    if (box && sw.parentNode !== box) { sw.style.cssText = "display:block;margin:0 0 14px auto"; box.insertBefore(sw, box.firstChild); }
-  }
-  let fonts = false;
-  function loadFonts() {
-    if (fonts) return;
-    fonts = true;
-    const l = document.createElement("link");
-    l.rel = "stylesheet";
-    l.href = "https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@500;600;700&display=swap";
-    document.head.appendChild(l);
-  }
-
-  const OBS = { childList: true, subtree: true };
-  const mo = new MutationObserver((ms) => {
-    mo.disconnect();
-    for (const m of ms) m.addedNodes.forEach((n) => process(n));
-    place();
-    mo.observe(document.body, OBS);
-  });
-  function set(l) {
-    lang = LANGS.includes(l) ? l : "en";
-    try { localStorage.setItem(KEY, lang); } catch (e) {}
-    document.documentElement.lang = lang === "hn" ? "hi-Latn" : lang;
-    if (lang === "hi") loadFonts();
-    sw.value = lang;
-    sw.setAttribute("aria-label", lang === "hi" ? "भाषा" : "Language");
-    mo.disconnect();
-    process(document.body);
-    place();
-    mo.observe(document.body, OBS);
-  }
-  let saved = null;
-  try { saved = localStorage.getItem(KEY); } catch (e) {}
-  set(saved || (/^hi/i.test(navigator.language || "") ? "hi" : "en"));
-})();
-</script>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <script>
@@ -818,5 +573,254 @@
       }
       boot();
     </script>
+
+
+
+<script>
+/* SafeLoop language support: English / हिन्दी / Hinglish.
+   Paste this whole block (including the <script> tags) just before </body> in public/index.html. */
+(() => {
+  const KEY = "safeloop_lang", LANGS = ["en", "hi", "hn"];
+  // [English, Hindi, Hinglish] – the English text must match the app's text exactly.
+  const T = [
+    ["Welcome back", "वापसी पर स्वागत है", "Wapas aane par swagat hai"],
+    ["Create your account", "अपना खाता बनाएँ", "Apna account banaiye"],
+    ["Share how you are doing with people you trust. You decide what they see.", "अपने भरोसेमंद लोगों को बताते रहिए कि आप कैसे हैं। वे क्या देख सकते हैं, यह आप तय करते हैं।", "Apne bharosemand logon ko batate rahiye ki aap kaise hain. Woh kya dekh sakte hain, yeh aap tay karte hain."],
+    ["Full name", "पूरा नाम", "Poora naam"],
+    ["Email", "ईमेल", "Email"],
+    ["Password", "पासवर्ड", "Password"],
+    ["8+ characters", "8+ अक्षर", "8+ characters"],
+    ["Log in", "लॉग इन करें", "Log in kijiye"],
+    ["Sign up", "साइन अप करें", "Sign up kijiye"],
+    ["New here? Create an account", "नए हैं? खाता बनाएँ", "Naye hain? Account banaiye"],
+    ["Have an account? Log in", "खाता है? लॉग इन करें", "Account hai? Log in kijiye"],
+    ["Home", "होम", "Home"],
+    ["Map", "नक्शा", "Map"],
+    ["People", "संपर्क", "Contacts"],
+    ["Alerts", "अलर्ट", "Alerts"],
+    ["Your SOS is active", "आपका SOS चालू है", "Aapka SOS active hai"],
+    ["Your trusted contacts have been notified.", "आपके भरोसेमंद संपर्कों को सूचित कर दिया गया है।", "Aapke trusted contacts ko bata diya gaya hai."],
+    ["I’m safe, cancel alert", "मैं सुरक्षित हूँ, अलर्ट रद्द करें", "Main safe hoon, alert cancel kijiye"],
+    ["SafeLoop does not replace emergency services.", "SafeLoop आपातकालीन सेवाओं का विकल्प नहीं है।", "SafeLoop emergency services ka vikalp nahin hai."],
+    ["active", "सक्रिय", "active"],
+    ["acknowledged", "स्वीकार किया गया", "acknowledge ho gaya"],
+    ["Acknowledge", "स्वीकार करें", "Acknowledge kijiye"],
+    ["Resolve", "सुलझाएँ", "Resolve kijiye"],
+    ["just now", "अभी-अभी", "Abhi abhi"],
+    ["Sharing live location", "लाइव लोकेशन साझा हो रही है", "Live location share ho rahi hai"],
+    ["Location sharing is off", "लोकेशन साझा करना बंद है", "Location sharing band hai"],
+    ["Only contacts you allowed can see it", "केवल आपकी अनुमति वाले संपर्क ही इसे देख सकते हैं", "Sirf aapke allow kiye hue contacts hi ise dekh sakte hain"],
+    ["Nobody can see where you are", "कोई नहीं देख सकता कि आप कहाँ हैं", "Koi nahin dekh sakta ki aap kahan hain"],
+    ["Share live location", "लाइव लोकेशन साझा करें", "Live location share kijiye"],
+    ["Have you had breakfast?", "क्या आपने नाश्ता किया?", "Kya aapne nashta kiya?"],
+    ["Have you had lunch?", "क्या आपने दोपहर का खाना खाया?", "Kya aapne lunch kiya?"],
+    ["Reached home?", "क्या घर पहुँच गए?", "Ghar pahunch gaye?"],
+    ["Time for your daily check-in", "आपके रोज़ाना चेक-इन का समय", "Aapke daily check-in ka time"],
+    ["Suggestion only. Tap to confirm.", "सिर्फ़ सुझाव है। पुष्टि के लिए टैप करें।", "Sirf suggestion hai. Confirm karne ke liye tap kijiye."],
+    ["Yes", "हाँ", "Haan"],
+    ["Quick status", "त्वरित स्थिति", "Quick status"],
+    ["Woke up", "उठ गए", "Uth gaye"],
+    ["Had breakfast", "नाश्ता किया", "Nashta kiya"],
+    ["Had lunch", "दोपहर का खाना खाया", "Lunch kiya"],
+    ["Had dinner", "रात का खाना खाया", "Dinner kiya"],
+    ["Reached home", "घर पहुँच गए", "Ghar pahunch gaye"],
+    ["Reached office", "ऑफ़िस पहुँच गए", "Office pahunch gaye"],
+    ["Boarded train", "ट्रेन में बैठ गए", "Train mein baith gaye"],
+    ["On the way", "रास्ते में", "Raaste mein"],
+    ["I am fine", "मैं ठीक हूँ", "Main theek hoon"],
+    ["Feeling unwell", "तबीयत ठीक नहीं है", "Tabiyat theek nahin hai"],
+    ["Call me when free", "फ़्री होकर कॉल करें", "Free hokar call kijiye"],
+    ["Going to sleep", "सोने जा रहे हैं", "Sone ja rahe hain"],
+    ["Or write your own update", "या अपना संदेश लिखें", "Ya apna update likhiye"],
+    ["Custom status", "अपनी स्थिति", "Apna status"],
+    ["Send", "भेजें", "Bhejiye"],
+    ["Updates", "अपडेट", "Updates"],
+    ["You", "आप", "Aap"],
+    ["No updates yet. Tap a status above to send your first one.", "अभी कोई अपडेट नहीं। पहला अपडेट भेजने के लिए ऊपर कोई स्थिति टैप करें।", "Abhi koi update nahin. Pehla update bhejne ke liye upar koi status tap kijiye."],
+    ["You appear here only while sharing is on. You see contacts only if they gave you “Status + live location”.", "आप यहाँ तभी दिखते हैं जब शेयरिंग चालू हो। आप संपर्कों को तभी देख सकते हैं जब उन्होंने आपको “स्थिति + लाइव लोकेशन” की अनुमति दी हो।", "Aap yahan tabhi dikhte hain jab sharing on ho. Aap contacts ko tabhi dekh sakte hain jab unhone aapko “Status + live location” ki permission di ho."],
+    ["Nobody is sharing a location right now.", "अभी कोई लोकेशन साझा नहीं कर रहा।", "Abhi koi location share nahin kar raha."],
+    ["Trusted contacts", "भरोसेमंद संपर्क", "Trusted contacts"],
+    ["wants to share updates with you.", "आपके साथ अपडेट साझा करना चाहते हैं।", "aapke saath updates share karna chahte hain."],
+    ["Accept", "स्वीकार करें", "Accept kijiye"],
+    ["Decline", "अस्वीकार करें", "Decline kijiye"],
+    ["People you share with", "जिनके साथ आप साझा करते हैं", "Jinke saath aap share karte hain"],
+    ["Invitation pending", "निमंत्रण लंबित", "Invitation pending"],
+    ["Paused", "रोका गया", "Paused"],
+    ["Active", "चालू", "Active"],
+    ["Status only", "केवल स्थिति", "Sirf status"],
+    ["Status + journey", "स्थिति + यात्रा", "Status + journey"],
+    ["Status + live location", "स्थिति + लाइव लोकेशन", "Status + live location"],
+    ["Permission", "अनुमति", "Permission"],
+    ["Resume", "फिर शुरू करें", "Resume kijiye"],
+    ["Pause", "रोकें", "Pause kijiye"],
+    ["Revoke", "हटाएँ", "Hatayein"],
+    ["Nobody yet. Invite someone you trust.", "अभी कोई नहीं। किसी भरोसेमंद व्यक्ति को आमंत्रित करें।", "Abhi koi nahin. Kisi bharosemand ko invite kijiye."],
+    ["Invite by email", "ईमेल से आमंत्रित करें", "Email se invite kijiye"],
+    ["Invite", "आमंत्रित करें", "Invite kijiye"],
+    ["People sharing with you", "जो आपके साथ साझा करते हैं", "Jo aapke saath share karte hain"],
+    ["Nobody has shared with you yet.", "अभी तक किसी ने आपके साथ साझा नहीं किया।", "Abhi tak kisi ne aapke saath share nahin kiya."],
+    ["Notifications", "सूचनाएँ", "Notifications"],
+    ["Mark all read", "सब पढ़ा हुआ करें", "Sab padha hua mark kijiye"],
+    ["New", "नया", "Naya"],
+    ["Nothing yet. Updates from your contacts will appear here.", "अभी कुछ नहीं। आपके संपर्कों के अपडेट यहाँ दिखेंगे।", "Abhi kuch nahin. Aapke contacts ke updates yahan dikhenge."],
+    ["Browsers can’t ring in the background. Keep SafeLoop open for live alerts.", "ब्राउज़र बैकग्राउंड में नहीं बज सकते। लाइव अलर्ट के लिए SafeLoop खुला रखें।", "Browser background mein ring nahin kar sakte. Live alerts ke liye SafeLoop khula rakhiye."],
+    ["Emergency SOS", "आपातकालीन SOS", "Emergency SOS"],
+    ["Hold for 2 seconds. Your trusted contacts get your latest shared location.", "2 सेकंड दबाए रखें। आपके भरोसेमंद संपर्कों को आपकी ताज़ा साझा लोकेशन मिलेगी।", "2 second dabaye rakhiye. Aapke trusted contacts ko aapki latest shared location mil jayegi."],
+    ["Hold 2 seconds to send SOS", "SOS भेजने के लिए 2 सेकंड दबाए रखें", "SOS bhejne ke liye 2 second dabaye rakhiye"],
+    ["SafeLoop does not replace emergency services. If you are in danger, call your local emergency number first.", "SafeLoop आपातकालीन सेवाओं का विकल्प नहीं है। खतरे में हों तो पहले अपने स्थानीय आपातकालीन नंबर पर कॉल करें।", "SafeLoop emergency services ka vikalp nahin hai. Khatre mein hon to pehle apne local emergency number par call kijiye."],
+    ["Network problem. Check your connection and try again.", "नेटवर्क में समस्या है। अपना कनेक्शन जाँचकर दोबारा कोशिश करें।", "Network mein problem hai. Connection check karke dobara try kijiye."],
+    ["This browser has no location support", "इस ब्राउज़र में लोकेशन सपोर्ट नहीं है", "Is browser mein location support nahin hai"],
+    ["Sharing started", "शेयरिंग शुरू हो गई", "Sharing shuru ho gayi"],
+    ["Location permission denied. Allow it in your browser settings.", "लोकेशन की अनुमति नहीं मिली। ब्राउज़र सेटिंग्स में इसे अनुमति दें।", "Location permission nahin mili. Browser settings mein ise allow kijiye."],
+    ["Could not get your location", "आपकी लोकेशन नहीं मिल सकी", "Aapki location nahin mil saki"],
+    ["Location sharing stopped", "लोकेशन साझा करना बंद हो गया", "Location sharing band ho gayi"],
+    ["Location sharing started", "लोकेशन साझा करना शुरू हुआ", "Location sharing shuru hui"],
+    ["SOS sent", "SOS भेज दिया गया", "SOS bhej diya gaya"],
+    ["Sent", "भेजा गया", "Bheja gaya"],
+    ["Accepted", "स्वीकार किया गया", "Accept ho gaya"],
+    ["Removed", "हटा दिया गया", "Hata diya gaya"],
+    ["Alert cancelled and contacts told", "अलर्ट रद्द किया गया और संपर्कों को बता दिया गया", "Alert cancel ho gaya aur contacts ko bata diya gaya"],
+    ["Acknowledged", "स्वीकार कर लिया", "Acknowledge kar liya"],
+    ["Resolved", "सुलझा दिया गया", "Resolve ho gaya"],
+    ["Permission updated", "अनुमति अपडेट हो गई", "Permission update ho gayi"],
+    ["Write an update first", "पहले कोई अपडेट लिखें", "Pehle koi update likhiye"],
+    ["Update sent", "अपडेट भेज दिया गया", "Update bhej diya gaya"],
+    ["Invitation sent. They must accept first", "आमंत्रण भेज दिया गया। उन्हें पहले स्वीकार करना होगा", "Invitation bhej diya gaya. Unhe pehle accept karna hoga"],
+    ["Emergency alert received", "आपातकालीन अलर्ट मिला", "Emergency alert mila"],
+    ["Wrong email or password", "ईमेल या पासवर्ड गलत है", "Email ya password galat hai"],
+    ["Email already registered", "यह ईमेल पहले से पंजीकृत है", "Yeh email pehle se registered hai"],
+    ["Valid email, name and 8+ character password required", "सही ईमेल, नाम और 8+ अक्षरों का पासवर्ड ज़रूरी है", "Sahi email, naam aur 8+ characters ka password zaroori hai"],
+    ["Too many attempts", "बहुत ज़्यादा कोशिशें हो गईं", "Bahut zyada koshishein ho gayin"],
+    ["Sign in required", "साइन इन करना ज़रूरी है", "Sign in karna zaroori hai"],
+    ["Enter a different valid email", "कोई दूसरा सही ईमेल डालें", "Koi doosra sahi email daaliye"],
+    ["Already invited", "पहले ही आमंत्रित किया जा चुका है", "Pehle hi invite kiya ja chuka hai"],
+    ["Not authorised", "अनुमति नहीं है", "Permission nahin hai"],
+    ["Only the person sharing can change permissions", "केवल साझा करने वाला व्यक्ति अनुमतियाँ बदल सकता है", "Sirf share karne wala vyakti permissions badal sakta hai"],
+    ["Server error", "सर्वर में गड़बड़ी", "Server mein gadbad"],
+    ["New trusted-contact request", "भरोसेमंद संपर्क का नया अनुरोध", "Trusted contact ka naya request"],
+    ["Contact accepted", "संपर्क ने स्वीकार किया", "Contact ne accept kiya"],
+    ["No location available", "कोई लोकेशन उपलब्ध नहीं", "Koi location available nahin"],
+    ["Emergency acknowledge", "आपातकालीन अलर्ट स्वीकार किया गया", "Emergency alert acknowledge ho gaya"],
+    ["Emergency resolve", "आपातकालीन अलर्ट सुलझा दिया गया", "Emergency alert resolve ho gaya"],
+    ["Emergency cancel", "आपातकालीन अलर्ट रद्द किया गया", "Emergency alert cancel ho gaya"],
+  ];
+  // Messages that contain a name or number: {1} is the captured part.
+  const PAT = [
+    [/^(.+) wants to share updates with you$/, "{1} आपके साथ अपडेट साझा करना चाहते हैं", "{1} aapke saath updates share karna chahte hain"],
+    [/^(.+) accepted your invitation$/, "{1} ने आपका आमंत्रण स्वीकार किया", "{1} ne aapka invitation accept kiya"],
+    [/^(.+) is sharing live location$/, "{1} लाइव लोकेशन साझा कर रहे हैं", "{1} live location share kar rahe hain"],
+    [/^(.+) stopped sharing$/, "{1} ने साझा करना बंद किया", "{1} ne sharing band ki"],
+    [/^Last location (.+)$/, "आख़िरी लोकेशन {1}", "Aakhri location {1}"],
+    [/^emergency from (.+)$/i, "आपातकालीन अलर्ट: {1}", "Emergency alert: {1}"],
+    [/^(.+): acknowledge$/, "{1} ने स्वीकार किया", "{1} ne acknowledge kiya"],
+    [/^(.+): resolve$/, "{1} ने सुलझाया", "{1} ne resolve kiya"],
+    [/^(.+): cancel$/, "{1} ने रद्द किया", "{1} ne cancel kiya"],
+    [/^(\d+) min ago$/, "{1} मिनट पहले", "{1} minute pehle"],
+    [/^(\d+) h ago$/, "{1} घंटे पहले", "{1} ghante pehle"],
+    [/^(\d+) d ago$/, "{1} दिन पहले", "{1} din pehle"],
+    [/^Log out (.+)$/, "लॉग आउट: {1}", "Log out: {1}"],
+  ];
+  const MAPS = { hi: new Map(), hn: new Map() };
+  T.forEach(([en, hi, hn]) => { MAPS.hi.set(en, hi); MAPS.hn.set(en, hn); });
+  let lang = "en";
+
+  const tr = (s) => {
+    if (lang === "en") return s;
+    const d = MAPS[lang], k = lang === "hi" ? 1 : 2;
+    if (d.has(s)) return d.get(s);
+    if (s.includes(" · ")) return s.split(" · ").map(tr).join(" · ");
+    let m = s.match(/^(active|acknowledged)\. (.+)$/);
+    if (m) return tr(m[1]) + (lang === "hi" ? "। " : ". ") + tr(m[2]);
+    for (const p of PAT) { m = s.match(p[0]); if (m) return p[k].replace(/\{(\d)\}/g, (_, i) => m[+i]); }
+    m = s.match(/^(.*?): (.+)$/); // "Name: Had lunch", "Sent: Had lunch"
+    if (m && d.has(m[2])) return (m[1] ? d.get(m[1]) || m[1] : "") + ": " + d.get(m[2]);
+    return s;
+  };
+
+  const seenText = new WeakMap(), seenAttr = new WeakMap();
+  const skip = (n) => (n.nodeType === 1 ? n : n.parentElement)?.closest('[translate="no"],script,style,textarea');
+  function text(n) {
+    const s = seenText.get(n), orig = s && n.data === s.shown ? s.orig : n.data;
+    const m = orig.match(/^(\s*)([\s\S]*?)(\s*)$/);
+    if (!m[2]) return;
+    const out = lang === "en" ? orig : m[1] + tr(m[2]) + m[3];
+    if (out !== n.data) n.data = out;
+    seenText.set(n, { orig, shown: out });
+  }
+  function attrs(el) {
+    for (const a of ["placeholder", "aria-label"]) {
+      if (!el.hasAttribute(a)) continue;
+      const rec = seenAttr.get(el) || {}, cur = el.getAttribute(a), r = rec[a];
+      const orig = r && cur === r.shown ? r.orig : cur, out = lang === "en" ? orig : tr(orig);
+      if (out !== cur) el.setAttribute(a, out);
+      rec[a] = { orig, shown: out };
+      seenAttr.set(el, rec);
+    }
+  }
+  function process(root) {
+    if (root.nodeType === 3) { if (!skip(root)) text(root); return; }
+    if (root.nodeType !== 1 || skip(root) || root.tagName === "IMG" || root.classList.contains("leaflet-tile")) return;
+    const w = document.createTreeWalker(root, 4);
+    for (let n = w.nextNode(); n; n = w.nextNode()) if (!skip(n)) text(n);
+    [root, ...root.querySelectorAll("[placeholder],[aria-label]")].forEach((e) => { if (!skip(e)) attrs(e); });
+  }
+
+  // language picker (kept in the header, or above the login form)
+  const css = document.createElement("style");
+  css.textContent =
+    '.sl-lang{font:500 12px/1 "Plus Jakarta Sans","Noto Sans Devanagari",system-ui,sans-serif;color:#3a0f34;background:transparent;border:1px solid #c0cad2;border-radius:999px;padding:7px 10px;cursor:pointer}' +
+    ".sl-lang:hover{border-color:#3a0f34}.sl-lang:focus-visible{outline:2px solid #3a0f34;outline-offset:2px}" +
+    'html body,html .font-sans{font-family:"Plus Jakarta Sans","Noto Sans Devanagari",system-ui,sans-serif}' +
+    'html .font-display{font-family:Fraunces,"Noto Serif Devanagari",Georgia,serif}' +
+    "html[lang=hi] body{line-height:1.7}html[lang=hi] h2,html[lang=hi] h3,html[lang=hi] .font-display{line-height:1.45}";
+  document.head.appendChild(css);
+  const sw = document.createElement("select");
+  sw.className = "sl-lang";
+  sw.setAttribute("translate", "no");
+  sw.innerHTML = '<option value="en">English</option><option value="hi">हिन्दी</option><option value="hn">Hinglish</option>';
+  sw.onchange = () => set(sw.value);
+  function place() {
+    const h = document.querySelector("#app header");
+    if (h) {
+      if (sw.parentNode !== h) { sw.style.cssText = "margin:0 8px 0 auto"; h.insertBefore(sw, h.lastElementChild); }
+      return;
+    }
+    const box = document.querySelector("#app > div");
+    if (box && sw.parentNode !== box) { sw.style.cssText = "display:block;margin:0 0 14px auto"; box.insertBefore(sw, box.firstChild); }
+  }
+  let fonts = false;
+  function loadFonts() {
+    if (fonts) return;
+    fonts = true;
+    const l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Serif+Devanagari:wght@500;600;700&display=swap";
+    document.head.appendChild(l);
+  }
+
+  const OBS = { childList: true, subtree: true };
+  const mo = new MutationObserver((ms) => {
+    mo.disconnect();
+    for (const m of ms) m.addedNodes.forEach((n) => process(n));
+    place();
+    mo.observe(document.body, OBS);
+  });
+  function set(l) {
+    lang = LANGS.includes(l) ? l : "en";
+    try { localStorage.setItem(KEY, lang); } catch (e) {}
+    document.documentElement.lang = lang === "hn" ? "hi-Latn" : lang;
+    if (lang === "hi") loadFonts();
+    sw.value = lang;
+    sw.setAttribute("aria-label", lang === "hi" ? "भाषा" : "Language");
+    mo.disconnect();
+    process(document.body);
+    place();
+    mo.observe(document.body, OBS);
+  }
+  let saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  set(saved || (/^hi/i.test(navigator.language || "") ? "hi" : "en"));
+})();
+</script>
   </body>
 </html>
