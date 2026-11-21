@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#3a0f34" />
+    <title>SafeLoop</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['"Plus Jakarta Sans"', "system-ui", "sans-serif"],
+              display: ['Fraunces', "Georgia", "serif"],
+            },
+            colors: {
+              ice: { DEFAULT: "#dde3e8", 50: "#eef1f4", 300: "#c0cad2" },
+              aubergine: { DEFAULT: "#3a0f34", 700: "#531c4b" },
+              marigold: { DEFAULT: "#eaaa00", 600: "#c99200" },
+              mute: "#66486a",
+              danger: { DEFAULT: "#b42318", 50: "#f7e6e3" },
+            },
+          },
+        },
+      };
+    </script>
+    <style type="text/tailwindcss">
+      @layer base {
+        button { @apply cursor-pointer; }
+      }
+    </style>
+  </head>
+  <body class="h-full bg-ice font-sans text-[15px] leading-relaxed text-aubergine antialiased">
+    <div id="app" class="mx-auto flex h-full max-w-[520px] flex-col overflow-y-auto pt-[env(safe-area-inset-top,0px)] lg:max-w-[640px]"></div>
+    <div id="toast" role="status" class="pointer-events-none fixed bottom-24 left-1/2 z-[2000] -translate-x-1/2 rounded-full bg-aubergine px-4 py-2.5 text-sm font-medium text-ice opacity-0 transition motion-reduce:transition-none"></div>
+    <script>
+      const $ = (s) => document.querySelector(s),
+        esc = (s) =>
+          String(s ?? "").replace(
+            /[&<>"']/g,
+            (c) =>
+              ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;",
+              })[c],
+          );
+      const ago = (t) => {
+        const m = Math.round((Date.now() - t) / 60000);
+        return m < 1
+          ? "just now"
+          : m < 60
+            ? m + " min ago"
+            : m < 1440
+              ? Math.round(m / 60) + " h ago"
+              : Math.round(m / 1440) + " d ago";
+      };
+      async function api(path, method = "GET", data) {
+        try {
+          const r = await fetch("/api" + path, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: method === "GET" ? undefined : JSON.stringify(data || {}),
+          });
+          const j = await r.json();
+          if (
+            r.status === 401 &&
+            path !== "/auth/login" &&
+            path !== "/auth/register"
+          ) {
+            S.user = null;
+            draw();
+          }
+          return j;
+        } catch {
+          return {
+            ok: false,
+            error: "Network problem. Check your connection and try again.",
+          };
+        }
+      }
+      function toast(m) {
+        const t = $("#toast");
+        t.textContent = m;
+        t.classList.replace("opacity-0", "opacity-100");
+        clearTimeout(toast.i);
+        toast.i = setTimeout(() => t.classList.replace("opacity-100", "opacity-0"), 2500);
+      }
+      const S = {
+        user: null,
+        tab: "home",
+        sharing: false,
+        feed: [],
+        contacts: { mine: [], sharingWithMe: [] },
+        notes: [],
+        unread: 0,
+        alerts: { mine: [], others: [] },
+        watch: null,
+        map: null,
+        markers: {},
+        authMode: "login",
+      };
+      const STAT = [
+        ["Woke up", "sun"],
+        ["Had breakfast", "coffee"],
+        ["Had lunch", "utensils"],
+        ["Had dinner", "utensils"],
+        ["Reached home", "home"],
+        ["Reached office", "briefcase"],
+        ["Boarded train", "train"],
+        ["On the way", "nav"],
+        ["I am fine", "check-circle"],
+        ["Feeling unwell", "thermo"],
+        ["Call me when free", "phone"],
+        ["Going to sleep", "moon"],
+      ];
+      const LV = {
+        status: "Status only",
+        journey: "Status + journey",
+        location: "Status + live location",
+      };
+      const suggest = () => {
+        const h = new Date().getHours();
+        return h < 11
+          ? ["Have you had breakfast?", "Had breakfast"]
+          : h < 16
+            ? ["Have you had lunch?", "Had lunch"]
+            : h < 20
+              ? ["Reached home?", "Reached home"]
+              : ["Time for your daily check-in", "I am fine"];
+      };
+
+      async function boot() {
+        const r = await api("/me");
+        if (r.ok) {
+          S.user = r.user;
+          S.sharing = r.sharing;
+          await load();
+          connect();
+          if (S.sharing) startWatch(true);
+        }
+        draw();
+      }
+      async function load() {
+        const [f, c, n, a] = await Promise.all([
+          api("/feed"),
+          api("/contacts"),
+          api("/notifications"),
+          api("/emergency/active"),
+        ]);
+        if (f.ok) S.feed = f.items;
+        if (c.ok) S.contacts = c;
+        if (n.ok) {
+          S.notes = n.items;
+          S.unread = n.unread;
+        }
+        if (a.ok) S.alerts = a;
+      }
+      let es;
+      function connect() {
+        es?.close();
+        es = new EventSource("/api/stream");
+        es.onmessage = async (e) => {
+          const ev = JSON.parse(e.data);
+          await load();
+          if (ev.type === "emergency") toast("Emergency alert received");
+          draw(true);
+          if (ev.type === "location" && S.tab === "map") updateMarkers();
+        };
+      }
+
+      // ---------- icons (inline SVG, stroke style) ----------
+      const I = {
+        home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-6h4v6"/>',
+        map: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14"/><path d="M15 6v14"/>',
+        users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17.5" cy="9" r="2.5"/><path d="M17 14.2c2.6.2 4.5 2 4.5 5"/>',
+        bell: '<path d="M6 16v-5a6 6 0 1 1 12 0v5l2 2H4l2-2Z"/><path d="M10 21h4"/>',
+        "shield-alert": '<path d="M12 3 4 6v6c0 4.5 3.2 7.8 8 9 4.8-1.2 8-4.5 8-9V6l-8-3Z"/><path d="M12 8v5"/><path d="M12 16.2v.01"/>',
+        shield: '<path d="M12 3 4 6v6c0 4.5 3.2 7.8 8 9 4.8-1.2 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2.2 2.2L15.5 10"/>',
+        pin: '<path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/>',
+        radio: '<circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/>',
+        logout: '<path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="m16 8 4 4-4 4"/><path d="M20 12H9"/>',
+        send: '<path d="M21 3 10 14"/><path d="m21 3-7 18-4-7-7-4 18-7Z"/>',
+        pause: '<path d="M8 5v14M16 5v14"/>',
+        play: '<path d="M7 4v16l13-8L7 4Z"/>',
+        x: '<path d="m6 6 12 12M18 6 6 18"/>',
+        check: '<path d="m5 12.5 4.5 4.5L19 7"/>',
+        "check-all": '<path d="m2 12.5 4.5 4.5L15 7"/><path d="m13 15 1 1 8-9"/>',
+        "check-circle": '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16 9.5"/>',
+        info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.7v.01"/>',
+        clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+        message: '<path d="M4 5h16v11H9l-5 4V5Z"/>',
+        "user-plus": '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M19 8v6M16 11h6"/>',
+        sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+        coffee: '<path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Z"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17"/><path d="M7 3v2M11 3v2M14 3v2"/>',
+        utensils: '<path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3"/><path d="M7 11v10"/><path d="M17 21V3c-2.5 1.5-4 4.5-4 8h4"/>',
+        briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/>',
+        train: '<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14"/><path d="m9 21 2-4M15 21l-2-4"/><path d="M9 14h.01M15 14h.01"/>',
+        nav: '<path d="M3 11 21 3l-8 18-2-8-8-2Z"/>',
+        thermo: '<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0Z"/>',
+        phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/>',
+        moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/>',
+        logo: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/>',
+      };
+      const ic = (n, c = "size-5") =>
+        `<svg class="${c} flex-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
+
+      // ---------- shared Tailwind class sets ----------
+      const FOCUS = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-aubergine";
+      const BTN = "inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition motion-reduce:transition-none " + FOCUS;
+      const K = {
+        btn: BTN + " border-aubergine bg-aubergine text-ice hover:bg-aubergine-700",
+        ghost: BTN + " border-ice-300 bg-transparent text-aubergine hover:border-aubergine",
+        gold: BTN + " border-aubergine bg-aubergine text-marigold hover:bg-aubergine-700",
+        input: "min-w-0 rounded-lg border border-ice-300 bg-white px-3 py-2.5 text-sm text-aubergine placeholder:text-mute/70 focus:border-aubergine " + FOCUS,
+        h2: "font-display text-2xl font-semibold leading-tight tracking-tight",
+        h3: "font-display text-lg font-semibold leading-snug",
+        mut: "text-sm text-mute",
+        tag: "rounded-full border border-ice-300 px-2 py-0.5 text-xs font-medium text-mute",
+        tagOn: "rounded-full bg-marigold px-2 py-0.5 text-xs font-semibold text-aubergine",
+        label: "mb-1.5 block text-sm font-medium",
+      };
+      const card = (v) =>
+        "mb-3.5 rounded-xl border p-4 " +
+        (v === "alert" ? "border-danger bg-danger-50" : v === "on" ? "border-aubergine bg-ice-50" : "border-ice-300 bg-ice-50");
+      const note = (t) =>
+        `<div class="mt-2.5 flex gap-2.5 rounded-lg border border-ice-300 bg-ice-50 p-3 text-[13px] text-mute">${ic("info", "size-4 mt-0.5")}<p>${t}</p></div>`;
+      const avatar = (s, c = "size-10 text-sm") =>
+        `<span class="grid ${c} flex-none place-items-center rounded-full bg-aubergine font-bold text-ice">${esc((s || "?").trim().charAt(0).toUpperCase())}</span>`;
+      const logo = `<div class="flex items-center gap-2.5 font-display text-xl font-semibold tracking-tight"><span class="grid size-8 place-items-center rounded-lg bg-aubergine text-marigold">${ic("logo", "size-5")}</span>SafeLoop</div>`;
+
+      function draw(keep) {
+        const app = $("#app");
+        if (!S.user) {
+          const login = S.authMode === "login";
+          app.innerHTML = `<div class="mx-auto mt-[8vh] w-full max-w-[400px] px-5 pb-10">${logo}
+ <div class="mt-6 rounded-xl border border-ice-300 bg-ice-50 p-6">
+ <h2 class="${K.h2}">${login ? "Welcome back" : "Create your account"}</h2>
+ <p class="${K.mut} mt-1.5">Share how you are doing with people you trust. You decide what they see.</p>
+ <form id="af" class="mt-5 flex flex-col gap-4">${login ? "" : `<div><label class="${K.label}" for="f-name">Full name</label><input id="f-name" class="${K.input} w-full" name="name" required autocomplete="name"></div>`}
+ <div><label class="${K.label}" for="f-email">Email</label><input id="f-email" class="${K.input} w-full" name="email" type="email" required autocomplete="email"></div>
+ <div><label class="${K.label}" for="f-pass">Password</label><input id="f-pass" class="${K.input} w-full" name="password" type="password" minlength="8" placeholder="8+ characters" required autocomplete="${login ? "current-password" : "new-password"}"></div>
+ <button class="${K.btn} w-full">${login ? "Log in" : "Sign up"}</button></form></div>
+ <p class="${K.mut} mt-5 text-center"><button class="font-semibold text-aubergine underline underline-offset-4 ${FOCUS}" data-a="mode">${login ? "New here? Create an account" : "Have an account? Log in"}</button></p></div>`;
+          $("#af").onsubmit = async (e) => {
+            e.preventDefault();
+            const f = Object.fromEntries(new FormData(e.target));
+            const r = await api("/auth/" + S.authMode, "POST", f);
+            if (!r.ok) return toast(r.error);
+            await boot();
+          };
+          return;
+        }
+        const m = app.querySelector("main"),
+          y = m ? m.scrollTop : 0;
+        const tabs = [
+          ["home", "home", "Home"],
+          ["map", "map", "Map"],
+          ["people", "users", "People"],
+          ["alerts", "bell", "Alerts"],
+          ["sos", "shield-alert", "SOS"],
+        ];
+        app.innerHTML = `<header class="flex items-center justify-between px-4 pt-3">${logo}<button class="flex items-center gap-2 rounded-full border border-ice-300 py-1.5 pl-3 pr-2.5 text-sm font-medium transition hover:border-aubergine motion-reduce:transition-none ${FOCUS}" data-a="logout" aria-label="Log out ${esc(S.user.name)}"><span class="max-w-[110px] truncate">${esc(S.user.name)}</span>${ic("logout", "size-4")}</button></header>
+ <main class="flex-1 overflow-y-auto px-4 pb-28 pt-4">${{ home, map: mapTab, people, alerts, sos }[S.tab]()}</main>
+ <nav class="fixed inset-x-0 bottom-0 z-[1000] bg-aubergine pb-[env(safe-area-inset-bottom,0px)]"><div class="mx-auto flex max-w-[520px] lg:max-w-[640px]">${tabs.map((t) => `<button class="relative flex flex-1 flex-col items-center gap-1 pb-2.5 pt-3 text-[11px] font-medium text-ice/70 transition hover:text-ice motion-reduce:transition-none aria-[current=page]:text-marigold focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-marigold" data-a="tab" data-v="${t[0]}" ${S.tab === t[0] ? 'aria-current="page"' : ""}>${S.tab === t[0] ? '<span class="absolute inset-x-6 top-0 h-0.5 bg-marigold"></span>' : ""}${ic(t[1], "size-[22px]")}${t[2]}${t[0] === "alerts" && S.unread ? `<span class="absolute right-[calc(50%-22px)] top-1.5 grid min-w-4 place-items-center rounded-full bg-marigold px-1 text-[10px] font-bold text-aubergine">${S.unread}</span>` : ""}</button>`).join("")}</div></nav>`;
+        if (keep) app.querySelector("main").scrollTop = y;
+        if (S.tab === "map") initMap();
+        if (S.tab === "sos") bindSos();
+        document.querySelectorAll("form[data-f]").forEach((f) => (f.onsubmit = onForm));
+      }
+      function alertBanners() {
+        return (
+          S.alerts.mine
+            .map(
+              (a) =>
+                `<div class="${card("alert")}"><div class="flex gap-3">${ic("shield-alert", "size-6 text-danger")}<div class="min-w-0 flex-1"><h3 class="${K.h3}">Your SOS is active</h3><p class="${K.mut}">Your trusted contacts have been notified.</p><button class="${K.ghost} mt-3" data-a="cancelsos" data-v="${a.id}">I’m safe, cancel alert</button></div></div></div>`,
+            )
+            .join("") +
+          S.alerts.others
+            .map(
+              (a) =>
+                `<div class="${card("alert")}"><div class="flex gap-3">${ic("shield-alert", "size-6 text-danger")}<div class="min-w-0 flex-1"><h3 class="${K.h3}">Emergency from ${esc(a.name)}</h3><p class="${K.mut}">${ago(a.at)} · ${a.state}. SafeLoop does not replace emergency services.</p><div class="mt-3 flex flex-wrap gap-2">${a.state === "active" ? `<button class="${K.btn}" data-a="ack" data-v="${a.id}">${ic("check", "size-4")}Acknowledge</button>` : ""}<button class="${K.ghost}" data-a="resolve" data-v="${a.id}">Resolve</button><button class="${K.ghost}" data-a="tab" data-v="map">${ic("map", "size-4")}Map</button></div></div></div></div>`,
+            )
+            .join("")
+        );
+      }
+      function home() {
+        const sg = suggest(),
+          on = S.sharing;
+        return (
+          alertBanners() +
+          `<div class="${card(on ? "on" : "")} flex items-center gap-3.5">
+ <span class="grid size-11 flex-none place-items-center rounded-lg ${on ? "bg-marigold text-aubergine" : "bg-ice text-mute"}">${ic(on ? "radio" : "pin")}</span>
+ <div class="min-w-0 flex-1"><div class="font-semibold">${on ? "Sharing live location" : "Location sharing is off"}</div><div class="${K.mut}">${on ? "Only contacts you allowed can see it" : "Nobody can see where you are"}</div></div>
+ <button role="switch" aria-checked="${S.sharing}" aria-label="Share live location" data-a="share" class="group relative h-7 w-12 flex-none rounded-full bg-ice-300 transition motion-reduce:transition-none aria-checked:bg-aubergine ${FOCUS}"><span class="absolute left-1 top-1 size-5 rounded-full bg-white transition-transform motion-reduce:transition-none group-aria-checked:translate-x-5 group-aria-checked:bg-marigold"></span></button></div>
+ <div class="mb-3.5 rounded-xl bg-marigold p-4 text-aubergine"><div class="flex items-center gap-3">${ic("message")}<div class="min-w-0 flex-1"><div class="font-semibold">${sg[0]}</div><div class="text-[13px]">Suggestion only. Tap to confirm.</div></div><button class="${K.gold}" data-a="post" data-v="${esc(sg[1])}">Yes</button></div></div>
+ <div class="${card()}"><h3 class="${K.h3} mb-3">Quick status</h3><div class="grid grid-cols-2 gap-2.5">${STAT.map((s) => `<button class="flex min-h-14 items-center gap-3 rounded-lg border border-ice-300 bg-ice px-3.5 py-3 text-left text-sm font-medium transition hover:border-aubergine active:scale-[0.98] motion-reduce:transition-none ${FOCUS}" data-a="post" data-v="${s[0]}">${ic(s[1], "size-5 text-aubergine")}${s[0]}</button>`).join("")}</div>
+ <form class="mt-3 flex gap-2" data-f="custom"><input class="${K.input} flex-1" name="t" maxlength="280" placeholder="Or write your own update" aria-label="Custom status"><button class="${K.btn}">${ic("send", "size-4")}Send</button></form></div>
+ <div class="${card()}"><h3 class="${K.h3} mb-1">Updates</h3>${
+   S.feed.length
+     ? `<ul class="divide-y divide-ice-300">${S.feed
+         .slice(0, 10)
+         .map(
+           (i) =>
+             `<li class="flex items-start gap-3 py-3">${avatar(i.userId === S.user.id ? "You" : i.name, "size-8 text-xs")}<div class="min-w-0 flex-1"><div><span class="font-semibold">${i.userId === S.user.id ? "You" : esc(i.name)}</span>: ${esc(i.label)}</div><div class="mt-0.5 flex items-center gap-1 text-xs text-mute">${ic("clock", "size-3.5")}${ago(i.at)}</div></div></li>`,
+         )
+         .join("")}</ul>`
+     : `<p class="${K.mut}">No updates yet. Tap a status above to send your first one.</p>`
+ }</div>`
+        );
+      }
+      function mapTab() {
+        return (
+          alertBanners() +
+          `<h2 class="${K.h2} mb-3 mt-1">Map</h2><div id="map" class="relative isolate z-0 h-[340px] overflow-hidden rounded-xl border border-ice-300"></div><p class="${K.mut} mt-2" id="mapnote"></p>${note("You appear here only while sharing is on. You see contacts only if they gave you “Status + live location”.")}`
+        );
+      }
+      function people() {
+        const { mine, sharingWithMe } = S.contacts;
+        return `<h2 class="${K.h2} mb-3 mt-1">Trusted contacts</h2>
+ ${sharingWithMe
+   .filter((c) => c.status === "pending")
+   .map(
+     (c) =>
+       `<div class="${card()}"><p><span class="font-semibold">${esc(c.name)}</span> wants to share updates with you.</p><div class="mt-3 flex gap-2"><button class="${K.btn}" data-a="accept" data-v="${c.id}">${ic("check", "size-4")}Accept</button><button class="${K.ghost}" data-a="del" data-v="${c.id}">Decline</button></div></div>`,
+   )
+   .join("")}
+ <h3 class="${K.h3} mb-2.5 mt-5">People you share with</h3>
+ ${
+   mine
+     .map(
+       (c) =>
+         `<div class="${card()}"><div class="flex items-center gap-3">${avatar(c.name || c.email)}<div class="min-w-0 flex-1"><div class="truncate font-semibold">${esc(c.name || c.email)}</div><div class="mt-0.5"><span class="${c.status === "pending" || c.paused ? K.tag : K.tagOn}">${c.status === "pending" ? "Invitation pending" : c.paused ? "Paused" : "Active"}</span></div></div></div><div class="mt-3 flex flex-wrap gap-2"><select class="${K.input} flex-1" data-a="lv" data-v="${c.id}" aria-label="Permission">${Object.entries(LV)
+           .map(([k, v]) => `<option value="${k}" ${k === c.level ? "selected" : ""}>${v}</option>`)
+           .join("")}</select><button class="${K.ghost}" data-a="pause" data-v="${c.id}" data-p="${c.paused ? 0 : 1}">${ic(c.paused ? "play" : "pause", "size-4")}${c.paused ? "Resume" : "Pause"}</button><button class="${K.ghost}" data-a="del" data-v="${c.id}">${ic("x", "size-4")}Revoke</button></div></div>`,
+     )
+     .join("") || `<p class="${K.mut} mb-3">Nobody yet. Invite someone you trust.</p>`
+ }
+ <form class="flex gap-2" data-f="invite"><input class="${K.input} flex-1" name="e" type="email" required placeholder="Invite by email" aria-label="Invite by email"><button class="${K.btn}">${ic("user-plus", "size-4")}Invite</button></form>
+ <h3 class="${K.h3} mb-2.5 mt-7">People sharing with you</h3>${
+   sharingWithMe
+     .filter((c) => c.status === "accepted")
+     .map(
+       (c) =>
+         `<div class="${card()} flex items-center gap-3">${avatar(c.name)}<span class="min-w-0 flex-1 truncate font-semibold">${esc(c.name)}</span><span class="${K.tag}">${LV[c.level]}</span>${c.paused ? `<span class="${K.tag}">Paused</span>` : ""}</div>`,
+     )
+     .join("") || `<p class="${K.mut}">Nobody has shared with you yet.</p>`
+ }`;
+      }
+      function alerts() {
+        return `<div class="mb-3 mt-1 flex items-center gap-3"><h2 class="${K.h2} min-w-0 flex-1">Notifications</h2><button class="${K.ghost}" data-a="readall">${ic("check-all", "size-4")}Mark all read</button></div>${
+          S.notes.length
+            ? S.notes
+                .map(
+                  (n) =>
+                    `<div class="${card(n.type === "emergency" ? "alert" : "")} flex gap-3 ${n.read ? "opacity-70" : ""}">${ic(n.type === "emergency" ? "shield-alert" : "bell", `size-5 mt-0.5 ${n.type === "emergency" ? "text-danger" : "text-aubergine"}`)}<div class="min-w-0 flex-1"><div class="flex items-center gap-2"><span class="font-semibold">${esc(n.title)}</span>${n.read ? "" : `<span class="${K.tagOn}">New</span>`}</div><div class="${K.mut}">${esc(n.body)} · ${ago(n.at)}</div></div></div>`,
+                )
+                .join("")
+            : `<div class="${card()} ${K.mut}">Nothing yet. Updates from your contacts will appear here.</div>`
+        }${note("Browsers can’t ring in the background. Keep SafeLoop open for live alerts.")}`;
+      }
+      function sos() {
+        return (
+          alertBanners() +
+          `<h2 class="${K.h2} mt-1">Emergency SOS</h2><p class="${K.mut} mt-1">Hold for 2 seconds. Your trusted contacts get your latest shared location.</p><button id="sosbtn" class="relative mx-auto my-10 flex size-48 touch-none select-none flex-col items-center justify-center gap-1 rounded-full bg-danger font-display text-4xl font-bold tracking-wide text-white ${FOCUS}" aria-label="Hold 2 seconds to send SOS"><svg class="pointer-events-none absolute -inset-2 size-[calc(100%+16px)] -rotate-90" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" fill="none" stroke="#c0cad2" stroke-width="3"/><circle id="ring" cx="50" cy="50" r="48" fill="none" stroke="#3a0f34" stroke-width="4" stroke-linecap="round" stroke-dasharray="302" stroke-dashoffset="302"/></svg>${ic("shield-alert", "size-9")}SOS</button>${note("SafeLoop does not replace emergency services. If you are in danger, call your local emergency number first.")}`
+        );
+      }
+
+      function bindSos() {
+        const b = $("#sosbtn"),
+          r = $("#ring");
+        let raf, st;
+        const stop = () => {
+          cancelAnimationFrame(raf);
+          r.style.strokeDashoffset = 302;
+        };
+        const step = async () => {
+          const p = Math.min((performance.now() - st) / 2000, 1);
+          r.style.strokeDashoffset = 302 * (1 - p);
+          if (p >= 1) {
+            stop();
+            const x = await api("/emergency", "POST");
+            toast(x.ok ? "SOS sent" : x.error);
+            await load();
+            draw();
+          } else raf = requestAnimationFrame(step);
+        };
+        b.onpointerdown = (e) => {
+          e.preventDefault();
+          st = performance.now();
+          raf = requestAnimationFrame(step);
+        };
+        b.onpointerup = b.onpointerleave = b.onpointercancel = stop;
+      }
+
+      // geolocation – only runs after the user switches sharing on
+      function startWatch(silent) {
+        if (!navigator.geolocation) {
+          toast("This browser has no location support");
+          return;
+        }
+        S.watch = navigator.geolocation.watchPosition(
+          async (p) => {
+            S.sharing = true;
+            await api("/location/update", "POST", {
+              lat: p.coords.latitude,
+              lng: p.coords.longitude,
+              acc: p.coords.accuracy,
+            });
+            if (!silent) {
+              silent = true;
+              toast("Sharing started");
+              draw(true);
+            }
+          },
+          (e) => {
+            S.sharing = false;
+            S.watch = null;
+            toast(
+              e.code === 1
+                ? "Location permission denied. Allow it in your browser settings."
+                : "Could not get your location",
+            );
+            draw(true);
+          },
+          { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 },
+        );
+      }
+      async function stopWatch() {
+        if (S.watch != null) navigator.geolocation.clearWatch(S.watch);
+        S.watch = null;
+        S.sharing = false;
+        await api("/location/stop", "POST");
+        toast("Location sharing stopped");
+      }
+      function initMap() {
+        S.map = L.map("map").setView([28.61, 77.21], 11);
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors",
+          maxZoom: 19,
+        }).addTo(S.map);
+        S.markers = {};
+        updateMarkers(true);
+      }
+      async function updateMarkers(fit) {
+        if (!S.map) return;
+        const ids = [[S.user.id, "You"]];
+        S.contacts.sharingWithMe
+          .filter(
+            (c) =>
+              c.status === "accepted" && c.level === "location" && !c.paused,
+          )
+          .forEach((c) => ids.push([c.userId, c.name]));
+        const pts = [];
+        for (const [id, name] of ids) {
+          const r = await api("/location/current/" + id);
+          const k = S.markers[id];
+          if (r.ok && r.location) {
+            const ll = [r.location.lat, r.location.lng];
+            pts.push(ll);
+            const tip = `${esc(name)} · ±${Math.round(r.location.acc || 0)} m · ${ago(r.location.at)}`;
+            if (k) k.setLatLng(ll).setTooltipContent(tip);
+            else
+              S.markers[id] = L.marker(ll)
+                .addTo(S.map)
+                .bindTooltip(tip, { permanent: true });
+          } else if (k) {
+            S.map.removeLayer(k);
+            delete S.markers[id];
+          }
+        }
+        const n = $("#mapnote");
+        if (n)
+          n.textContent = pts.length
+            ? ""
+            : "Nobody is sharing a location right now.";
+        if (fit && pts.length)
+          S.map.fitBounds(pts, { maxZoom: 15, padding: [40, 40] });
+      }
+
+      document.addEventListener("click", async (e) => {
+        const el = e.target.closest("[data-a]");
+        if (!el || el.tagName === "SELECT") return;
+        const a = el.dataset.a,
+          v = el.dataset.v;
+        let r;
+        if (a === "mode") {
+          S.authMode = S.authMode === "login" ? "register" : "login";
+          return draw();
+        }
+        if (a === "tab") {
+          S.tab = v;
+          if (S.map) {
+            S.map.remove();
+            S.map = null;
+          }
+          return draw();
+        }
+        if (a === "logout") {
+          await api("/auth/logout", "POST");
+          es?.close();
+          if (S.watch != null) navigator.geolocation.clearWatch(S.watch);
+          Object.assign(S, { user: null, sharing: false, watch: null });
+          return draw();
+        }
+        if (a === "share") {
+          if (S.sharing) await stopWatch();
+          else {
+            startWatch();
+            return;
+          }
+        } else if (a === "post") {
+          r = await api("/status", "POST", { label: v });
+          toast(r.ok ? "Sent: " + v : r.error);
+        } else if (a === "accept") {
+          await api(`/contacts/${v}/accept`, "POST");
+          toast("Accepted");
+        } else if (a === "del") {
+          await api("/contacts/" + v, "DELETE");
+          toast("Removed");
+        } else if (a === "pause") {
+          await api("/contacts/" + v, "PATCH", {
+            paused: el.dataset.p === "1",
+          });
+        } else if (a === "readall") {
+          await api("/notifications/read", "POST");
+        } else if (a === "cancelsos") {
+          await api(`/emergency/${v}/cancel`, "POST");
+          toast("Alert cancelled and contacts told");
+        } else if (a === "ack") {
+          await api(`/emergency/${v}/acknowledge`, "POST");
+          toast("Acknowledged");
+        } else if (a === "resolve") {
+          await api(`/emergency/${v}/resolve`, "POST");
+          toast("Resolved");
+        }
+        await load();
+        draw(true);
+      });
+      document.addEventListener("change", async (e) => {
+        if (e.target.dataset.a === "lv") {
+          const r = await api("/contacts/" + e.target.dataset.v, "PATCH", {
+            level: e.target.value,
+          });
+          toast(r.ok ? "Permission updated" : r.error);
+          await load();
+        }
+      });
+      async function onForm(e) {
+        e.preventDefault();
+        const f = e.target,
+          k = f.dataset.f;
+        let r;
+        if (k === "custom") {
+          const t = f.t.value.trim();
+          if (!t) return toast("Write an update first");
+          r = await api("/status", "POST", { label: t });
+          toast(r.ok ? "Update sent" : r.error);
+        }
+        if (k === "invite") {
+          r = await api("/contacts/invite", "POST", { email: f.e.value });
+          toast(r.ok ? "Invitation sent. They must accept first" : r.error);
+        }
+        await load();
+        draw(true);
+      }
+      boot();
+    </script>
+  </body>
+</html>
