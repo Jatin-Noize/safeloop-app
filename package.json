@@ -1,1 +1,15 @@
-{"name":"safeloop","version":"0.1.0","private":true,"engines":{"node":">=22.5"},"scripts":{"start":"node --disable-warning=ExperimentalWarning server.js","test":"node test.js"}}
+{
+  "name": "safeloop",
+  "version": "0.2.0",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  }
+}
